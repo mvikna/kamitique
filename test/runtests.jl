@@ -539,6 +539,100 @@ end
         @test K.trouve(ro)
         @test first(ro.chemin) == :a && last(ro.chemin) == :d
         @test ro.harmonie > 0
+        re = K.resilience_par_pesee_locale(G, :a, :d, h; panne = :c)   # :c hors de la voie a—b—d
+        @test re.resilient && K.trouve(re)
+        @test first(re.chemin) == :a && last(re.chemin) == :d
+        @test !(:c in re.chemin)
+        re_seuil = K.resilience_par_pesee_locale(G, :a, :d, h; panne = :c, seuil = 2.0)
+        @test !re_seuil.resilient                                      # harmonie ≤ 1 < seuil
+        re_coupe = K.resilience_par_pesee_locale(G, :a, :d, h; panne = :b)  # :b unique lien a→d
+        @test !re_coupe.resilient && !K.trouve(re_coupe)
+
+        # méthode 23.3 — protocole par composition : couches = échelles (A-K6)
+        Gp = S.Porteur()
+        S.ajouter_site!(Gp, :phys; echelle = 1, voisins = [:liai])
+        S.ajouter_site!(Gp, :liai; echelle = 2, voisins = [:phys, :resa])
+        S.ajouter_site!(Gp, :resa; echelle = 3, voisins = [:liai, :tran])
+        S.ajouter_site!(Gp, :tran; echelle = 4, voisins = [:resa])
+        pr = K.protocole_par_composition(Gp, [:tran, :phys, :resa, :liai], h)
+        @test pr.couches == [:phys, :liai, :resa, :tran]     # ordre par échelle croissante
+        @test pr.conforme && 0.0 <= pr.harmonie <= 1.0
+        @test length(pr.trame.sites) == 4
+        pr_saut = K.protocole_par_composition(Gp, [:phys, :resa], h)   # échelles 1 puis 3
+        @test !pr_saut.conforme                                        # saut d'échelle (A-K6)
+        @test_throws ArgumentError K.protocole_par_composition(Gp, Symbol[], h)
+        @test_throws KeyError K.protocole_par_composition(Gp, [:phys, :zz], h)
+
+        # méthode 23.4 — transmission longue portée : fragmentation + recomposition
+        Gt = S.Porteur()
+        S.ajouter_site!(Gt, :a; voisins = [:b])
+        S.ajouter_site!(Gt, :b; voisins = [:a, :c])
+        S.ajouter_site!(Gt, :c; voisins = [:b, :d])
+        S.ajouter_site!(Gt, :d; voisins = [:c])
+        for s in (:t1, :t2, :t3, :t4)
+            S.ajouter_site!(Gt, s)
+        end
+        msg = S.Figure([:t1, :t2, :t3, :t4])
+        tr = K.transmission_longue_portee(Gt, msg, :a, :d, h; capacite = 2)
+        @test tr.integre && tr.message.sites == msg.sites
+        @test tr.cout == 6                       # 2 fragments × (a→b→c→d : 3 relais)
+        @test isapprox(tr.rendement, 4 / 6; atol = 1e-12)
+        tr1 = K.transmission_longue_portee(Gt, msg, :a, :d, h; capacite = 1)
+        @test tr1.integre && tr1.cout == 2 * tr.cout   # capacité 1 ⇒ 2× plus de fragments
+        @test_throws ArgumentError K.transmission_longue_portee(Gt, S.figure_vide(), :a, :d, h)
+        @test_throws ArgumentError K.transmission_longue_portee(Gt, msg, :a, :d, h; capacite = 0)
+        @test_throws KeyError K.transmission_longue_portee(Gt, S.Figure([:zz]), :a, :d, h)
+
+        # méthode 23.5 — toile par figures : adressage, hyperliens, navigation
+        Gweb = S.Porteur()
+        S.ajouter_site!(Gweb, :accueil;   lieu = "kamitique/accueil",   echelle = 1, voisins = [:theorie])
+        S.ajouter_site!(Gweb, :theorie;   lieu = "kamitique/theorie",   echelle = 2, voisins = [:accueil, :reseaux])
+        S.ajouter_site!(Gweb, :reseaux;   lieu = "kamitique/reseaux",   echelle = 3, voisins = [:theorie])
+        S.ajouter_site!(Gweb, :glossaire; lieu = "kamitique/glossaire", echelle = 4)
+        K.lier!(Gweb, :reseaux, :glossaire)                       # hyperlien ajouté, symétrique
+        @test :glossaire in S.voisins(Gweb, :reseaux)
+        @test :reseaux in S.voisins(Gweb, :glossaire)
+        @test S.verifie_ak6(Gweb)                                 # toile stratifiée (A-K6)
+
+        rr = K.resoudre_adresse(Gweb, "kamitique/reseaux", h)
+        @test K.trouve(rr) && rr.document == :reseaux && length(rr) == 1
+        rr_abs = K.resoudre_adresse(Gweb, "kamitique/inexistant", h)
+        @test !K.trouve(rr_abs) && rr_abs.document === nothing
+
+        # homonymes départagés par le voisinage (pesée), non par une racine globale
+        Gho = S.Porteur()
+        S.ajouter_site!(Gho, :requerant)
+        S.ajouter_site!(Gho, :mairie_centre; lieu = "mairie")
+        S.ajouter_site!(Gho, :mairie_nord;   lieu = "mairie")
+        _mu_toile = Dict((:requerant, :mairie_centre) => 0.95,
+                         (:requerant, :mairie_nord)   => 0.6)
+        htoile = S.Harmonie((g, hh) -> begin
+            a, b = only(g.sites), only(hh.sites)
+            a == b && return 1.0
+            return get(_mu_toile, (a, b), get(_mu_toile, (b, a), 0.8))
+        end)
+        rh = K.resoudre_adresse(Gho, "mairie", htoile; depuis = :requerant)
+        @test rh.document == :mairie_centre && length(rh) == 2
+        @test isapprox(rh.harmonie, 0.95; atol = 1e-12)
+        @test K.resoudre_adresse(Gho, "mairie", htoile).document == :mairie_centre  # sans requérant
+
+        # navigation par hyperliens : harmonie cumulée maximale, figure close
+        nav = K.naviguer_toile(Gweb, :accueil, :glossaire, h)
+        @test K.trouve(nav)
+        @test nav.chemin == [:accueil, :theorie, :reseaux, :glossaire]
+        @test nav.figure.sites == [:accueil, :theorie, :reseaux, :glossaire]
+        @test S.est_close(Gweb, nav.figure)
+        @test isapprox(nav.harmonie, 0.8^3; atol = 1e-12)         # 3 sauts disjoints
+        Giso = S.Porteur()
+        S.ajouter_site!(Giso, :x); S.ajouter_site!(Giso, :y)
+        nav_vide = K.naviguer_toile(Giso, :x, :y, h)
+        @test !K.trouve(nav_vide) && isempty(nav_vide.figure.sites) && nav_vide.harmonie == 0.0
+
+        @test_throws KeyError K.lier!(Gweb, :accueil, :zz)
+        @test_throws ArgumentError K.lier!(Gweb, :accueil, :accueil)
+        @test_throws KeyError K.resoudre_adresse(Gweb, "kamitique/accueil", h; depuis = :zz)
+        @test_throws KeyError K.naviguer_toile(Gweb, :zz, :glossaire, h)
+        @test_throws KeyError K.naviguer_toile(Gweb, :accueil, :zz, h)
     end
 
     @testset "cryptologie (ch. 24)" begin
@@ -576,6 +670,8 @@ end
         @test length(pl.affectation) == 4
         @test all(a -> 1 <= a <= 2, pl.affectation)
         @test 0.0 <= pl.harmonie_locale <= 1.0
+        @test sort(unique(pl.affectation)) == [1, 2]        # répartition effective (équilibre)
+        @test length(unique(K.placement_par_pesee(Ψ, h; ateliers = 4).affectation)) == 4
         fl = K.flot_par_composition(G, :a, :d, h)
         @test K.trouve(fl)
         @test first(fl.chemin) == :a && last(fl.chemin) == :d
@@ -617,6 +713,8 @@ end
         gr = K.execution_par_harmonie(Ψ, h; workers = 2)
         @test length(gr.affectation) == 4
         @test gr.harmonie >= 0.0
+        @test sort(unique(gr.affectation)) == [1, 2]        # répartition effective (équilibre)
+        @test length(unique(K.execution_par_harmonie(Ψ, h; workers = 4).affectation)) == 4
         rc = K.reponderation_sous_charge([3.0, 2.0, 0.5], [1.0, 0.5, 1.0])
         @test rc.retenues == [1, 2]                         # la 3ᵉ voie : gain net ≤ 0
         @test isapprox(rc.gain_net, 3.5; atol = 1e-12)
@@ -637,6 +735,8 @@ end
         pa = K.partitionnement_geometrique([S.Figure([:a, :b]), S.Figure([:b])], h; parts = 1)
         @test length(pa.partitions) == 1
         @test Set(pa.partitions[1].sites) == Set([:a, :b])  # figure jamais coupée (clôture sous ⊙)
+        pa2 = K.partitionnement_geometrique([fa, fb, fc, fd], h; parts = 2)   # 4 composantes
+        @test count(p -> !isempty(p), pa2.partitions) == 2  # répartition effective (équilibre)
         ag = K.agregation_harmonique([fa, fb], h)
         @test Set(ag.agregee.sites) == Set([:a, :b])
         @test isapprox(ag.harmonie, 0.8; atol = 1e-9)

@@ -26,23 +26,27 @@ Base.length(r::ResultatPlacement) = length(r.affectation)
 **Placement par pesée harmonique** (méthode 14.1). Répartit les figures du support
 de `Ψ` entre `ateliers` unités de calcul en rapprochant celles dont la compatibilité
 `µ` est la plus haute : la localité est une **cache pesée**, non un indice d'adresse.
-Chaque figure est affectée à l'atelier où la compatibilité cumulée avec les figures
-déjà placées est maximale. L'harmonie locale moyenne mesure la cohérence intra-atelier.
+
+La répartition est **équilibrée** : chaque unité reçoit au plus `⌈n / ateliers⌉`
+figures (charge d'un atelier). Parmi les unités **non saturées**, chaque figure rejoint
+celle où la compatibilité cumulée avec les figures déjà placées est maximale (à égalité,
+le plus petit indice) ; une unité saturée est écartée de la pesée. La capacité garantit
+que toutes les unités sont peuplées dès que `ateliers ≤ n`. L'harmonie locale moyenne
+mesure la cohérence intra-atelier.
 """
 function placement_par_pesee(Ψ::Etat, h::Harmonie; ateliers::Integer = 2)
     ateliers >= 1 || throw(ArgumentError("le réseau porte au moins un atelier"))
     n = length(Ψ.figures)
+    capacite = cld(n, ateliers)                  # charge maximale par atelier (équilibre)
+    charge = zeros(Int, ateliers)
     affectation = zeros(Int, n)
-    registre = String["placement par pesée harmonique : $n figure(s), $ateliers atelier(s)"]
+    registre = String["placement par pesée harmonique : $n figure(s), $ateliers atelier(s), " *
+                      "capacité $capacite par atelier"]
     for i in 1:n
-        if i == 1
-            affectation[i] = 1
-            push!(registre, "figure 1 → atelier 1 (ouverture)")
-            continue
-        end
-        meilleur_atelier = 1
+        meilleur_atelier = 0
         meilleure_coh = -1.0
         for a in 1:ateliers
+            charge[a] >= capacite && continue     # atelier saturé : hors de la pesée
             coh = 0.0
             for j in 1:(i - 1)
                 affectation[j] == a || continue
@@ -54,6 +58,7 @@ function placement_par_pesee(Ψ::Etat, h::Harmonie; ateliers::Integer = 2)
             end
         end
         affectation[i] = meilleur_atelier
+        charge[meilleur_atelier] += 1
         push!(registre, "figure $i → atelier $meilleur_atelier " *
                         "(cohérence $(round(meilleure_coh; digits = 3)))")
     end

@@ -42,6 +42,11 @@ export
     ResultatAgregation, agregation_harmonique,
     # Réseaux (ch. 23)
     ResultatRoutage, routage_par_harmonie,
+    ResultatResilience, resilience_par_pesee_locale,
+    ResultatProtocole, protocole_par_composition,
+    ResultatTransmission, transmission_longue_portee,
+    ResultatResolution, resoudre_adresse,
+    ResultatNavigation, naviguer_toile, lier!,
     # Cryptologie (ch. 24)
     Empreinte, hachage_par_pesee, chiffrement_par_redistribution,
     dechiffrement_par_redistribution,

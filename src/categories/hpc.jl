@@ -27,21 +27,26 @@ Base.length(r::ResultatGrille) = length(r.affectation)
 `workers` travailleurs d'une grille de pesée, en regroupant celles dont la
 compatibilité `µ` est haute : le placement minimise les communications par construction.
 L'harmonie totale rendue est la somme des compatibilités intra-worker.
+
+La répartition est **équilibrée** : chaque worker reçoit au plus `⌈n / workers⌉`
+figures (charge d'un worker). Parmi les workers **non saturés**, chaque figure rejoint
+celui où la compatibilité cumulée avec les figures déjà placées est maximale (à égalité,
+le plus petit indice) ; un worker saturé est écarté de la pesée. La capacité garantit
+que tous les workers sont peuplés dès que `workers ≤ n`.
 """
 function execution_par_harmonie(Ψ::Etat, h::Harmonie; workers::Integer = 2)
     workers >= 1 || throw(ArgumentError("la grille porte au moins un worker"))
     n = length(Ψ.figures)
+    capacite = cld(n, workers)                   # charge maximale par worker (équilibre)
+    charge = zeros(Int, workers)
     affectation = zeros(Int, n)
-    registre = String["exécution par harmonie : $n figure(s), $workers worker(s)"]
+    registre = String["exécution par harmonie : $n figure(s), $workers worker(s), " *
+                      "capacité $capacite par worker"]
     for i in 1:n
-        if i == 1
-            affectation[i] = 1
-            push!(registre, "figure 1 → worker 1")
-            continue
-        end
-        meilleur = 1
+        meilleur = 0
         meilleure_coh = -1.0
         for w in 1:workers
+            charge[w] >= capacite && continue     # worker saturé : hors de la pesée
             coh = 0.0
             for j in 1:(i - 1)
                 affectation[j] == w || continue
@@ -53,6 +58,7 @@ function execution_par_harmonie(Ψ::Etat, h::Harmonie; workers::Integer = 2)
             end
         end
         affectation[i] = meilleur
+        charge[meilleur] += 1
         push!(registre, "figure $i → worker $meilleur (cohérence $(round(meilleure_coh; digits = 3)))")
     end
     total = 0.0

@@ -55,19 +55,29 @@ end
 **closes sous ⊙** : les figures qui partagent un site ne sont jamais séparées, elles
 sont fusionnées en une composante insécable. Chaque composante est ensuite affectée à
 la partition dont l'harmonie cumulée est la plus haute. On ne coupe jamais une figure.
+
+La répartition est **équilibrée** : chaque partition reçoit au plus `⌈composantes / parts⌉`
+composantes (charge d'une partition). Parmi les partitions **non saturées**, chaque
+composante rejoint celle d'harmonie cumulée la plus haute (à égalité, la première) ; une
+partition saturée est écartée de la pesée. La capacité garantit que toutes les partitions
+sont peuplées dès que `parts ≤ composantes`.
 """
 function partitionnement_geometrique(figures::AbstractVector{Figure}, h::Harmonie;
                                      parts::Integer = 2)
     isempty(figures) && throw(ArgumentError("aucune figure à partitionner"))
     parts >= 1 || throw(ArgumentError("au moins une partition"))
     comps = _composantes_figures(figures)
+    capacite = cld(length(comps), parts)         # charge maximale par partition (équilibre)
+    charge = zeros(Int, parts)
     parts_vec = Figure[figure_vide() for _ in 1:parts]
     registre = String["partitionnement géométrique : $(length(figures)) figure(s) → " *
-                      "$(length(comps)) composante(s) close(s) sous ⊙, $parts partition(s)"]
+                      "$(length(comps)) composante(s) close(s) sous ⊙, $parts partition(s), " *
+                      "capacité $capacite par partition"]
     for (k, c) in enumerate(comps)
-        meilleur = 1
+        meilleur = 0
         meilleure_coh = -1.0
         for p in 1:parts
+            charge[p] >= capacite && continue     # partition saturée : hors de la pesée
             coh = isempty(parts_vec[p]) ? 0.0 :
                   clamp(float(h.compatibilite(c, parts_vec[p])), 0.0, 1.0)
             if coh > meilleure_coh
@@ -76,6 +86,7 @@ function partitionnement_geometrique(figures::AbstractVector{Figure}, h::Harmoni
             end
         end
         parts_vec[meilleur] = parts_vec[meilleur] ⊙ c
+        charge[meilleur] += 1
         push!(registre, "composante $k ($(length(c.sites)) site(s)) → partition $meilleur")
     end
     return ResultatPartition(parts_vec, registre)

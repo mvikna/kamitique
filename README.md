@@ -46,7 +46,9 @@ Kamitique/
 │   ├── Cosmologie_Quantique_Geometrique.pdf   # livre source (CQG)
 │   └── La_Kamitique_Theories_Methodes_Algorithmes.pdf
 ├── benchmark/
-│   └── benchmarks.jl           # efficacité des méthodes (temps, allocation, ordre)
+│   ├── benchmarks.jl           # efficacité des méthodes (temps, allocation, ordre)
+│   ├── objectifs.jl            # conformité globale du dispositif (80 contrôles)
+│   └── objectifs_chNN.jl       # conformité par catégorie (ch. 14 à 30)
 ├── src/
 │   ├── Kamitique.jl            # module racine, includes + ré-export
 │   ├── loi/                    # Loi.jl + 6 fichiers — la Loi fondamentale de la CQG (ch. 1–4)
@@ -58,7 +60,7 @@ Kamitique/
 │   ├── categories/             # Categories.jl + 17 fichiers — une par catégorie de la carte
 │   └── ethnomatique/           # Ethnomatique.jl + 6 fichiers — les savoirs africains formalisés
 └── test/
-    └── runtests.jl             # suite de tests (779 tests, module par module)
+    └── runtests.jl             # suite de tests (821 tests, module par module)
 ```
 
 ### Les huit modules
@@ -71,7 +73,7 @@ Kamitique/
 | **Chaine** | La chaîne épistémologique | les 7 dimensions (donnée, information, connaissance, renseignement + gouvernes éthique/frugalité/explicabilité), opérateurs de chaîne, chaîne gouvernée, registre de justification |
 | **Methodologie** | La méthodologie opérationnelle `M = (R, P, Γ)` | règles opérationnelles `R`, protocoles `Pδ/Pι/Pκ`, épreuves de gouvernance `εE/εF/εX`, tableau de dérivation |
 | **Dispositif** | Le dispositif unifié de résolution | les quatre mouvements, critères d'admissibilité et de conformité, carte des catégories (tableau 13.1) |
-| **Categories** | Les méthodes par catégorie | une méthode par catégorie de la carte, toutes adossées au même socle |
+| **Categories** | Les méthodes par catégorie | les méthodes de chaque catégorie de la carte, toutes adossées au même socle |
 | **Ethnomatique** | Les savoirs africains formalisés | registre extensible : numérations, jeux de semailles (awalé), géomancie (sikidy/ifa), motifs et symétries (adinkra, sona), artefacts à encoches (Ishango, Lebombo) |
 
 ---
@@ -180,7 +182,7 @@ Chaque catégorie de problèmes computationnels possède **un fichier** dans
 | 20 | Informatique quantique | `quantique.jl` | `calcul_par_superposition`, `correction_par_harmonisation` |
 | 21 | Bases de données | `bases.jl` | `recherche_par_relaxation`, `jointure_par_composition` |
 | 22 | Big data | `bigdata.jl` | `partitionnement_geometrique`, `agregation_harmonique` |
-| 23 | Réseaux | `reseaux.jl` | `routage_par_harmonie` |
+| 23 | Réseaux | `reseaux.jl` | `routage_par_harmonie`, `resilience_par_pesee_locale`, `protocole_par_composition`, `transmission_longue_portee`, `resoudre_adresse` / `naviguer_toile` (toile par figures) |
 | 24 | Cryptologie | `cryptologie.jl` | `hachage_par_pesee`, `chiffrement_par_redistribution` |
 | 25 | Optimisation / recherche opérationnelle | `optimisation.jl` | `descente_par_harmonisation`, `elagage_par_pesee`, `borne_harmonique` |
 | 26 | Aide multicritère à la décision | `multicritere.jl` | `classement_par_pesee_harmonique`, `negociation_par_reponderation` |
@@ -300,7 +302,7 @@ Pkg.test("Kamitique")
 # julia --project=. test/runtests.jl
 ```
 
-Elle compte **779 tests** et couvre le module `Loi` (axiomes `A1–A4`, dérivation
+Elle compte **821 tests** et couvre le module `Loi` (axiomes `A1–A4`, dérivation
 `ΣK ⇐ A1…A4`, espace des phases, Loi Universelle, Heka, manifestation), le Socle
 (axiomes `ΣK`, théorèmes `T-K1 → T-K6`), la Pesée, la Chaine, la Méthodologie
 (`M = (R, P, Γ)`), le Dispositif (quatre mouvements, carte), **chaque catégorie**
@@ -321,6 +323,24 @@ chaque catégorie :
 Il couvre aussi les cas limites (entrées dégénérées, rejets attendus) et rappelle
 les classes de coût observées (`n²`, `n log n`, `n`, `sⁿ`).
 
+### Rapports de conformité
+
+Deux familles de rapports vérifient, **engagement par engagement**, que la carte
+tient ce qu'elle consigne :
+
+- `benchmark/objectifs.jl` — le dispositif global (`BILAN GLOBAL : 80/80`) ;
+- `benchmark/objectifs_chNN.jl` — une catégorie par fichier (ch. 14 à 30), chacune
+  se terminant par un `BILAN CATÉGORIE`.
+
+```julia
+# julia --project=. benchmark/objectifs.jl
+# julia --project=. benchmark/objectifs_ch23.jl
+```
+
+Chaque contrôle affiche `[✓]`/`[✗]` et recoupe les chiffres consignés en
+**recalculant les règles indépendamment** (fidélité `G5`, voir
+`docs/journal_theorie_de_base.md`).
+
 ---
 
 ## 11. Correspondance avec les documents de référence
@@ -332,7 +352,7 @@ les classes de coût observées (`n²`, `n log n`, `n`, `sⁿ`).
 | `docs/La_Kamitique_Theories_Methodes_Algorithmes.pdf` — ch. 8 | module **Pesee** : balance, non-compensation, dernière pesée humaine |
 | `docs/La_Kamitique_Theories_Methodes_Algorithmes.pdf` — ch. 9 & 11 | module **Chaine** : 7 dimensions, chaîne gouvernée ; module **Methodologie** : règles `R`, protocoles `P`, épreuves `Γ` |
 | `docs/La_Kamitique_Theories_Methodes_Algorithmes.pdf` — ch. 12 & 13 | module **Dispositif** : identité `δ/ι/κ` socle↔chaîne, les quatre mouvements, carte (tableau 13.1) |
-| `docs/La_Kamitique_Theories_Methodes_Algorithmes.pdf` — ch. 14 à 30 | module **Categories** : une méthode par catégorie |
+| `docs/La_Kamitique_Theories_Methodes_Algorithmes.pdf` — ch. 14 à 30 | module **Categories** : les méthodes de chaque catégorie |
 | Savoirs africains | module **Ethnomatique** : numérations, semailles, géomancie, motifs, artefacts |
 
 ---
